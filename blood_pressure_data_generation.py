@@ -149,7 +149,7 @@ fhir_data = generate_fhir_data(patient_name, systolic_bp, diastolic_bp, body_tem
 
 
 # Publish to Kafka
-publish_to_kafka(fhir_data, 'observation', 'localhost:9093')
+publish_to_kafka(fhir_data, 'observation', 'localhost:9092')
 
 # Write the JSON data to a file ( for local test )
 # output_file = "fhir_data.json"
