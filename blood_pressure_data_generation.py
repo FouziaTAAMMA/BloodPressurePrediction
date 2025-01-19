@@ -1,14 +1,35 @@
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 import uuid
 from confluent_kafka import Producer
+from faker import Faker
+import random
 
-def generate_fhir_data(patient_name, systolic_bp, diastolic_bp, body_temp):
+fake = Faker(locale="fr_FR")
+
+def generate_medical_data(sick=False):
+    if sick:
+        # Generate anomalous values for either or both systolic and diastolic BP
+        systolic_bp = random.choice([random.randint(50, 89), random.randint(141, 200)])
+        diastolic_bp = random.choice([random.randint(40, 59), random.randint(91, 130)])
+        # Ensure at least one of the values is anomalous
+        if systolic_bp in range(90, 141) and diastolic_bp in range(60, 91):
+            if random.choice([True, False]):
+                systolic_bp = random.choice([random.randint(50, 89), random.randint(141, 200)])
+            else:
+                diastolic_bp = random.choice([random.randint(40, 59), random.randint(91, 130)])
+        body_temp = round(random.uniform(38.0, 41.0), 1)  # Fever range for sick
+    else:
+        # Generate normal values
+        systolic_bp = random.randint(90, 140)
+        diastolic_bp = random.randint(60, 90)
+        body_temp = round(random.uniform(36.0, 37.5), 1)  # Normal body temperature
+
+    return systolic_bp, diastolic_bp, body_temp
+
+def generate_fhir_data(patient_name, systolic_bp, diastolic_bp, body_temp, effective_date):
     # Generate a unique ID for the observation
     observation_id = str(uuid.uuid4())
-
-    # Current date and time for effectiveDateTime
-    effective_date = datetime.now().strftime("%Y-%m-%d")
 
     # Blood Pressure Observation
     blood_pressure_observation = {
@@ -38,7 +59,7 @@ def generate_fhir_data(patient_name, systolic_bp, diastolic_bp, body_temp):
             "text": "Blood pressure systolic & diastolic"
         },
         "subject": {
-            "reference": f"Patient/{patient_name}"
+            "reference": f"{patient_name}"
         },
         "effectiveDateTime": effective_date,
         "component": [
@@ -99,7 +120,7 @@ def generate_fhir_data(patient_name, systolic_bp, diastolic_bp, body_temp):
             "text": "Body temperature"
         },
         "subject": {
-            "reference": f"Patient/{patient_name}"
+            "reference": f"{patient_name}"
         },
         "effectiveDateTime": effective_date,
         "valueQuantity": {
@@ -137,23 +158,34 @@ def publish_to_kafka(data, topic, bootstrap_servers):
     producer.produce(topic, value=json.dumps(data).encode('utf-8'), callback=delivery_report)
     producer.flush()
 
+# Calculate the date range for the last two months
+two_months_ago = datetime.now() - timedelta(days=60)
 
 # Example usage
-patient_name = "Patient 2"
-systolic_bp = 140
-diastolic_bp = 90
-body_temp = 40
+patient_name = fake.name()
 
-# Generate FHIR data
-fhir_data = generate_fhir_data(patient_name, systolic_bp, diastolic_bp, body_temp)
+# Generate observation date
+effective_date = fake.date_between(
+    start_date=two_months_ago, 
+    end_date='today'
+).strftime("%Y-%m-%d")
+
+# Generate medical data for healthy and sick patients
+def process_patient_data(sick, print_to_file=False):
+    systolic_bp, diastolic_bp, body_temp = generate_medical_data(sick=sick)
+    fhir_data = generate_fhir_data(patient_name, systolic_bp, diastolic_bp, body_temp, effective_date)
+    
+    if print_to_file:
+        with open(f"fhir_data_sick_{sick}.json", "w") as file:
+            json.dump(fhir_data, file, indent=2)
 
 
-# Publish to Kafka
-publish_to_kafka(fhir_data, 'observation', 'localhost:9092')
+    # Publish to Kafka
+    print(f"Patient Name: {patient_name},Sick: {sick} , Systolic BP: {systolic_bp}, Diastolic BP: {diastolic_bp}, Body Temp: {body_temp}, Effective Date: {effective_date}")
+    publish_to_kafka(fhir_data, 'observation', 'localhost:29092')
 
-# Write the JSON data to a file ( for local test )
-# output_file = "fhir_data.json"
-# with open(output_file, "w") as file:
-#     json.dump(fhir_data, file, indent=2)
+# Example usage
 
-# print(f"FHIR data has been written to {output_file}")
+process_patient_data(sick=random.choice([True, False]), print_to_file=False)
+
+
