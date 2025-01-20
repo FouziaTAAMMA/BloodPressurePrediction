@@ -1,1 +1,3 @@
 patients_normal.json
+__pycache__/
+*.pyc

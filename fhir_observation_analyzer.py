@@ -2,7 +2,7 @@ import json
 from confluent_kafka import Consumer, KafkaException, KafkaError
 from elasticsearch import Elasticsearch
 
-# Define the function to detect anomalies
+# Définir la fonction pour détecter les anomalies
 def detect_condition(systolic_bp, diastolic_bp):
     if systolic_bp < 90 and diastolic_bp < 60:
         return "Hypotension"
@@ -19,37 +19,37 @@ def detect_condition(systolic_bp, diastolic_bp):
     else:
         return "Unknown"
 
-# Initialize Elasticsearch client
+# Initialiser le client Elasticsearch
 es = Elasticsearch(
     [{'host': 'localhost', 'port': 9200, 'scheme': 'http'}],
     headers={'Content-Type': 'application/json'}
 )
 
-# Save data to local JSON file
+# Enregistrer les données dans un fichier JSON local
 def save_to_json(data, filename):
     with open(filename, 'a') as file:
         json.dump(data, file, indent=2)
         file.write('\n')
 
-# Create Kafka consumer
+# Créer un consommateur Kafka
 def consume_message():
     consumer = Consumer({
-        'bootstrap.servers': 'localhost:29092',  # Updated to reflect Docker setup
+        'bootstrap.servers': 'localhost:29092',  # Mis à jour pour refléter la configuration Docker
         'group.id': 'observation-group',
         'auto.offset.reset': 'earliest'
     })
 
-    consumer.subscribe(['observation'])  # Topic name
+    consumer.subscribe(['observation'])  # Nom du sujet
 
     try:
         while True:
-            msg = consumer.poll(timeout=1.0)  # Adjust timeout as needed
+            msg = consumer.poll(timeout=1.0)  # Ajuster le délai d'attente si nécessaire
             
             if msg is None:
                 continue
             if msg.error():
                 if msg.error().code() == KafkaError._PARTITION_EOF:
-                    print(f'End of partition reached: {msg.topic()} {msg.partition()} {msg.offset()}')
+                    print(f'Fin de la partition atteinte: {msg.topic()} {msg.partition()} {msg.offset()}')
                 else:
                     raise KafkaException(msg.error())
             else:
@@ -60,12 +60,12 @@ def consume_message():
     finally:
         consumer.close()
 
-# Process the FHIR message and extract data
+# Traiter le message FHIR et extraire les données
 def process_fhir_message(fhir_message):
     try:
         data = json.loads(fhir_message)
 
-        # Extract patient name (assume patient reference format "Patient/Patient 3")
+        # Extraire le nom du patient et les observations
         patient_name = None
         systolic_bp = diastolic_bp = body_temp = effective_date = None
 
@@ -86,11 +86,11 @@ def process_fhir_message(fhir_message):
         if patient_name and systolic_bp is not None and diastolic_bp is not None and body_temp is not None:
             condition = detect_condition(systolic_bp, diastolic_bp)
             print(f"Patient: {patient_name}")
-            print(f"Systolic BP: {systolic_bp} mmHg, Diastolic BP: {diastolic_bp} mmHg, Body Temp: {body_temp}°C")
+            print(f"Pression systolique: {systolic_bp} mmHg, Pression diastolique: {diastolic_bp} mmHg, Température corporelle: {body_temp}°C")
             print(f"Condition: {condition}")
             if condition != "Normal":
-                print(f"Anomalies detected: {condition}")
-                # Index data in Elasticsearch
+                print(f"Anomalies détectées: {condition}")
+                # Indexer les données dans Elasticsearch
                 response = es.index(index='patients', body={
                     'patient_name': patient_name,
                     'systolic_bp': systolic_bp,
@@ -99,15 +99,15 @@ def process_fhir_message(fhir_message):
                     'effective_date': effective_date,
                     'condition': condition
                 })
-                print(f"Indexed document ID: {response['_id']}")
+                print(f"ID du document indexé: {response['_id']}")
             else:
-                print("No anomalies detected.")
-                # Save data to local JSON file
+                print("Aucune anomalie détectée.")
+                # Enregistrer les données dans un fichier JSON local
                 save_to_json(data, 'patients_normal.json')
         else:
-            print("Missing some required data.")
+            print("Certaines données requises manquent.")
     except Exception as e:
-        print(f"Error processing FHIR message: {str(e)}")
+        print(f"Erreur lors du traitement du message FHIR: {str(e)}")
 
 if __name__ == '__main__':
     consume_message()
