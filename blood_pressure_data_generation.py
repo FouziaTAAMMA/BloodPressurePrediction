@@ -35,10 +35,10 @@ def generate_medical_data(condition):
     return systolic_bp, diastolic_bp, body_temp, condition
 
 def generate_fhir_data(patient_name, systolic_bp, diastolic_bp, body_temp, effective_date, condition):
-    # Generate a unique ID for the observation
+    # Générer un ID unique pour l'observation
     observation_id = str(uuid.uuid4())
 
-    # Blood Pressure Observation
+    # Observation de la pression artérielle
     blood_pressure_observation = {
         "resourceType": "Observation",
         "id": "blood-pressure",
@@ -103,7 +103,7 @@ def generate_fhir_data(patient_name, systolic_bp, diastolic_bp, body_temp, effec
         ],
     }
 
-    # Body Temperature Observation
+    # Observation de la température corporelle
     body_temp_observation = {
         "resourceType": "Observation",
         "id": "body-temperature",
@@ -138,7 +138,7 @@ def generate_fhir_data(patient_name, systolic_bp, diastolic_bp, body_temp, effec
         }
     }
 
-    # Combine both observations into a Bundle
+    # Combiner les deux observations dans un Bundle
     bundle = {
         "resourceType": "Bundle",
         "type": "collection",
@@ -156,19 +156,19 @@ def generate_fhir_data(patient_name, systolic_bp, diastolic_bp, body_temp, effec
 
 def delivery_report(err, msg):
     if err is not None:
-        print('Message delivery failed: {}'.format(err))
+        print('Échec de la livraison du message: {}'.format(err))
     else:
-        print('Message delivered to {} [{}]'.format(msg.topic(), msg.partition()))
+        print('Message livré à {} [{}]'.format(msg.topic(), msg.partition()))
 
 def publish_to_kafka(data, topic, bootstrap_servers):
     producer = Producer({'bootstrap.servers': bootstrap_servers})
     producer.produce(topic, value=json.dumps(data).encode('utf-8'), callback=delivery_report)
     producer.flush()
 
-# Calculate the date range for the last 6 months
+# Calculer la plage de dates pour les 6 derniers mois
 range_months_ago = datetime.now() - timedelta(days=190)
 
-# Generate medical data for patients
+# Générer des données médicales pour les patients
 def process_patient_data(condition, print_to_file=False):
     patient_name = fake.name()
     effective_date = fake.date_between(
@@ -182,15 +182,16 @@ def process_patient_data(condition, print_to_file=False):
         with open(f"fhir_data_{condition}.json", "w") as file:
             json.dump(fhir_data, file, indent=2)
 
-    # Publish to Kafka
-    print(f"Patient Name: {patient_name}, Condition: {condition}, Systolic BP: {systolic_bp}, Diastolic BP: {diastolic_bp}, Body Temp: {body_temp}, Effective Date: {effective_date}")
+    # Publier sur Kafka
+    print(f"Nom du patient: {patient_name}, Condition: {condition}, Pression systolique: {systolic_bp}, Pression diastolique: {diastolic_bp}, Température corporelle: {body_temp}, Date effective: {effective_date}")
     publish_to_kafka(fhir_data, 'observation', 'localhost:29092')
 
-# Randomly select a condition
+# Sélectionner aléatoirement une condition
 conditions = ["Hypotension", "Normal", "Elevated", "Hypertension Stage 1", "Hypertension Stage 2", "Hypertensive Crisis"]
 
-# Generate 400 observations for test
-for _ in range(400):
+# Générer des observations pour le test
+nombre_observations = 400
+for _ in range(nombre_observations):
     selected_condition = random.choice(conditions)
     process_patient_data(selected_condition, print_to_file=False)
 
