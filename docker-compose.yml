@@ -11,6 +11,7 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_SESSION_TIMEOUT: 60000  # Increase session timeout to 60 seconds
     volumes:
       - zookeeper_data:/var/lib/zookeeper
 
@@ -32,6 +33,7 @@ services:
       KAFKA_TOOLS_LOG4J_LOGLEVEL: ERROR
     volumes:
       - kafka_data:/var/lib/kafka
+      - kafka_logs:/var/log/kafka
 
   kafka-ui:
     image: provectuslabs/kafka-ui
@@ -56,10 +58,26 @@ services:
     volumes:
       - es_data:/usr/share/elasticsearch/data
 
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.10.1
+    container_name: kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+    volumes:
+      - kibana_data:/usr/share/kibana/data
+
 volumes:
   zookeeper_data:
     driver: local
   kafka_data:
     driver: local
+  kafka_logs:
+    driver: local
   es_data:
+    driver: local
+  kibana_data:
     driver: local

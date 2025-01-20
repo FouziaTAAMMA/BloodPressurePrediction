@@ -1,23 +1,23 @@
 import json
 from confluent_kafka import Consumer, KafkaException, KafkaError
 from elasticsearch import Elasticsearch
-import os
 
 # Define the function to detect anomalies
-def detect_anomalies(systolic_bp, diastolic_bp, body_temp):
-    anomalies = []
-    
-    # Check for abnormal blood pressure values
-    if systolic_bp < 90 or systolic_bp > 140:
-        anomalies.append("Abnormal systolic blood pressure")
-    if diastolic_bp < 60 or diastolic_bp > 90:
-        anomalies.append("Abnormal diastolic blood pressure")
-    
-    # Check for abnormal body temperature
-    # if body_temp < 35 or body_temp > 40:
-    #     anomalies.append("Abnormal body temperature")
-    
-    return anomalies
+def detect_condition(systolic_bp, diastolic_bp):
+    if systolic_bp < 90 and diastolic_bp < 60:
+        return "Hypotension"
+    elif 90 <= systolic_bp <= 119 and 60 <= diastolic_bp <= 79:
+        return "Normal"
+    elif 120 <= systolic_bp <= 129 and 60 <= diastolic_bp <= 79:
+        return "Elevated"
+    elif 130 <= systolic_bp <= 139 and 80 <= diastolic_bp <= 89:
+        return "Hypertension Stage 1"
+    elif 140 <= systolic_bp <= 179 and 90 <= diastolic_bp <= 119:
+        return "Hypertension Stage 2"
+    elif systolic_bp >= 180 and diastolic_bp >= 120:
+        return "Hypertensive Crisis"
+    else:
+        return "Unknown"
 
 # Initialize Elasticsearch client
 es = Elasticsearch(
@@ -55,6 +55,8 @@ def consume_message():
             else:
                 message_value = msg.value().decode('utf-8')
                 process_fhir_message(message_value)
+    except KeyboardInterrupt:
+        pass
     finally:
         consumer.close()
 
@@ -82,20 +84,22 @@ def process_fhir_message(fhir_message):
                     patient_name = entry['resource']['subject']['reference']
 
         if patient_name and systolic_bp is not None and diastolic_bp is not None and body_temp is not None:
-            anomalies = detect_anomalies(systolic_bp, diastolic_bp, body_temp)
+            condition = detect_condition(systolic_bp, diastolic_bp)
             print(f"Patient: {patient_name}")
             print(f"Systolic BP: {systolic_bp} mmHg, Diastolic BP: {diastolic_bp} mmHg, Body Temp: {body_temp}°C")
-            if anomalies:
-                print(f"Anomalies detected: {', '.join(anomalies)}")
+            print(f"Condition: {condition}")
+            if condition != "Normal":
+                print(f"Anomalies detected: {condition}")
                 # Index data in Elasticsearch
-                es.index(index='patients', body={
+                response = es.index(index='patients', body={
                     'patient_name': patient_name,
                     'systolic_bp': systolic_bp,
                     'diastolic_bp': diastolic_bp,
                     'body_temp': body_temp,
                     'effective_date': effective_date,
-                    'anomalies': anomalies
+                    'condition': condition
                 })
+                print(f"Indexed document ID: {response['_id']}")
             else:
                 print("No anomalies detected.")
                 # Save data to local JSON file
