@@ -41,6 +41,10 @@ Exécutez le script `blood_pressure_data_generation.py` pour générer et publie
 python blood_pressure_data_generation.py
 ```
 
+### Étape 2.1 : Vérifier les données dans Kafka UI ( Optionel )
+
+Ouvrez votre navigateur web et accédez à `http://localhost:8080` pour ouvrir l'interface Kafka UI. Vérifiez que les données générées par le script `blood_pressure_data_generation.py` sont bien enregistrées dans les sujets de Kafka.
+
 ### Étape 3 : Consommer et indexer des données
 
 Exécutez le script `fhir_observation_analyzer.py` pour consommer des données de Kafka et les indexer dans Elasticsearch.
