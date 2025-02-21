@@ -190,7 +190,7 @@ def process_patient_data(condition, print_to_file=False):
 conditions = ["Hypotension", "Normal", "Elevated", "Hypertension Stage 1", "Hypertension Stage 2", "Hypertensive Crisis"]
 
 # Générer des observations pour le test
-nombre_observations = 400
+nombre_observations = 1000
 for _ in range(nombre_observations):
     selected_condition = random.choice(conditions)
     process_patient_data(selected_condition, print_to_file=False)
